@@ -1,0 +1,83 @@
+SELECT *
+FROM OPENROWSET(
+        BULK 'https://tokyoolympicsdatastorage.dfs.core.windows.net/olympics-datastorage/silver/coaches/*.parquet',
+        FORMAT = 'PARQUET'
+) AS result1;
+
+
+
+create schema gold
+GO
+
+CREATE VIEW gold.final
+AS
+SELECT
+       Name,
+       Country,
+       Discipline,
+       Event
+FROM OPENROWSET(
+        BULK 'https://tokyoolympicsdatastorage.dfs.core.windows.net/olympics-datastorage/silver/coaches/*.parquet',
+        FORMAT = 'PARQUET'
+) AS rows;
+GO
+
+
+
+select * from gold.final
+
+
+CREATE VIEW gold.final2
+AS
+SELECT
+       [Rank],
+       [TeamCountry],
+       [Gold],
+       [Silver],
+       [Bronze],
+       [Total],
+       [Rank by Total]
+FROM OPENROWSET(
+        BULK 'https://tokyoolympicsdatastorage.dfs.core.windows.net/olympics-datastorage/silver/medals/*.parquet',
+        FORMAT = 'PARQUET'
+) AS rows;
+GO
+
+
+SELECT
+    TeamCountry,
+    Gold
+FROM gold.final2
+ORDER BY
+    Gold DESC;
+GO
+
+
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = '$@Nju***';
+CREATE DATABASE SCOPED CREDENTIAL Sanjayadmin WITH IDENTITY = 'Managed Identity';
+
+select * from sys.database_credentials
+
+CREATE EXTERNAL FILE FORMAT extfileformat WITH (
+    FORMAT_TYPE = PARQUET,
+    DATA_COMPRESSION = 'org.apache.hadoop.io.compress.SnappyCodec'
+);
+
+CREATE EXTERNAL DATA SOURCE goldlayer WITH (
+    LOCATION = 'https://tokyoolympicsdatastorage.dfs.core.windows.net/olympics-datastorage/gold/',
+    CREDENTIAL = Sanjayadmin
+);
+
+
+CREATE EXTERNAL TABLE gold.finaltable WITH (
+        LOCATION = 'Serving',
+        DATA_SOURCE = goldlayer,
+        FILE_FORMAT = extfileformat
+) AS
+SELECT * FROM gold.final2;
+
+
+
+select * from gold.finaltable
+
+select * from gold.final2
